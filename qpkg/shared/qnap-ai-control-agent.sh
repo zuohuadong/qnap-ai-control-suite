@@ -34,12 +34,40 @@ migrate_legacy_job_state() {
   fi
 
   # v2.1 generated configs used /var/lib, which is not the QTS configuration
-  # persistence area. Rewrite only that exact legacy default; custom paths are
-  # preserved. The temporary file + rename avoids exposing partial JSON.
+  # persistence area. Rewrite that exact legacy default; v1 configs may omit
+  # journal_path entirely, so add the canonical path to their jobs object.
+  # Custom paths are preserved. The temporary file + rename avoids exposing
+  # partial JSON.
   if [ -f "$CONFIG" ] && grep -Fq '"journal_path": "/var/lib/qnap-ai-control-agent/jobs.jsonl"' "$CONFIG"; then
     TMP="$CONFIG.jobs-migrate.tmp"
     umask 077
     if ! sed 's#"journal_path": "/var/lib/qnap-ai-control-agent/jobs.jsonl"#"journal_path": "/etc/config/qnap-ai-control-agent/jobs/jobs.jsonl"#g' "$CONFIG" > "$TMP"; then
+      rm -f "$TMP"
+      return 1
+    fi
+    chmod 600 "$TMP" || { rm -f "$TMP"; return 1; }
+    mv "$TMP" "$CONFIG" || { rm -f "$TMP"; return 1; }
+  elif [ -f "$CONFIG" ] && ! grep -Eq '"journal_path"[[:space:]]*:' "$CONFIG" && grep -Eq '"jobs"[[:space:]]*:[[:space:]]*\{' "$CONFIG"; then
+    TMP="$CONFIG.jobs-migrate.tmp"
+    umask 077
+    if ! awk -v journal="$JOURNAL" '
+      BEGIN { inserted = 0 }
+      !inserted && match($0, /"jobs"[[:space:]]*:[[:space:]]*\{/) {
+        prefix = substr($0, 1, RSTART + RLENGTH - 1)
+        suffix = substr($0, RSTART + RLENGTH)
+        print prefix
+        if (suffix ~ /^[[:space:]]*\}[[:space:]]*,?[[:space:]]*$/) {
+          print "    \"journal_path\": \"" journal "\""
+        } else {
+          print "    \"journal_path\": \"" journal "\","
+        }
+        if (suffix != "") print suffix
+        inserted = 1
+        next
+      }
+      { print }
+      END { if (!inserted) exit 1 }
+    ' "$CONFIG" > "$TMP"; then
       rm -f "$TMP"
       return 1
     fi

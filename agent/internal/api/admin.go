@@ -153,7 +153,7 @@ func (s *Server) tokenMetadataLocked() auth.Metadata {
 
 func (s *Server) adminSettings(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		s.fail(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "GET required; settings are read-only in v2.1.0", nil)
+		s.fail(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "GET required; settings are read-only in v2.1.1", nil)
 		return
 	}
 	s.ok(w, r, map[string]any{

@@ -8,9 +8,14 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"qnap-ai-control-suite/agent/internal/audit"
 )
 
-type Service struct{ AuditPath, ServicePath string }
+type Service struct {
+	AuditPath, ServicePath string
+	RedactSecrets          bool
+}
 type Source struct {
 	Name      string `json:"name"`
 	Path      string `json:"path"`
@@ -63,6 +68,9 @@ func (s Service) Page(name string, limit, cursor int, query string, since, until
 	filtered := make([]string, 0, len(lines))
 	unparseable := 0
 	for _, line := range lines {
+		if s.RedactSecrets {
+			line = audit.RedactText(line)
+		}
 		if query != "" && !strings.Contains(strings.ToLower(line), strings.ToLower(query)) {
 			continue
 		}

@@ -31,3 +31,10 @@ func TestSanitizeKeepsOperationalTarget(t *testing.T) {
 		t.Fatalf("unexpected sanitized value: %#v", value)
 	}
 }
+
+func TestRedactTextMasksSensitiveLookingStandaloneValues(t *testing.T) {
+	text := RedactText("qacs-test-secret-123 qacs-test-password-123 ordinary-value")
+	if strings.Contains(text, "qacs-test-secret-123") || strings.Contains(text, "qacs-test-password-123") || !strings.Contains(text, "ordinary-value") {
+		t.Fatalf("standalone sensitive values were not redacted: %q", text)
+	}
+}

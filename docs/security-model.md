@@ -15,7 +15,7 @@ WebUI 的 Token 管理 API 也受当前 Bearer Token 保护。QPKG 当前通过 
 - `allowed_roots`：文件系统边界，实际路径会解析 symlink 后验证。
 - `allow_any_command`/`allowed_commands`：argv command 边界。
 - `allow_shell`：是否允许 `/bin/sh -c`。
-- `redact_secrets`：Docker 与审计隐私显示策略。
+- `privacy.redact_secrets`：Docker 响应的隐私显示策略；`audit.redact_secrets`：审计、Job 输出及日志读取的隐私显示策略。
 - `approval.mode`：`off`、`sensitive_only`、`all_write`，独立于权限 profile。
 
 v1 的 `confirmation` 仅为迁移兼容字段。没有 `approval` 的 v1 配置（包括 `full_trust` 的 `confirmation.mode=off`）会迁移为 `approval.mode=sensitive_only`。

@@ -118,9 +118,10 @@ func secretKey(key string) bool {
 }
 
 var (
-	bearerPattern = regexp.MustCompile(`(?i)\bBearer\s+[A-Za-z0-9._~+/-]+`)
-	flagPattern   = regexp.MustCompile(`(?i)(--?(?:token|password|passwd|secret|api[_-]?key|credential)(?:=|\s+))[^\s]+`)
-	assignPattern = regexp.MustCompile(`(?i)\b(?:token|password|passwd|secret|api[_-]?key|credential)\s*[:=]\s*[^\s,;]+`)
+	bearerPattern         = regexp.MustCompile(`(?i)\bBearer\s+[A-Za-z0-9._~+/-]+`)
+	flagPattern           = regexp.MustCompile(`(?i)(--?(?:token|password|passwd|secret|api[_-]?key|credential)(?:=|\s+))[^\s]+`)
+	assignPattern         = regexp.MustCompile(`(?i)\b(?:token|password|passwd|secret|api[_-]?key|credential)\s*[:=]\s*[^\s,;]+`)
+	sensitiveTokenPattern = regexp.MustCompile(`(?i)(^|[[:space:]"'])([A-Za-z0-9._/-]*(?:token|password|passwd|secret|credential|api[_-]?key|private[_-]?key)[A-Za-z0-9._/-]*)`)
 )
 
 // RedactText is exported so jobs and API error paths can apply identical rules
@@ -128,10 +129,11 @@ var (
 func RedactText(value string) string {
 	value = bearerPattern.ReplaceAllString(value, "Bearer [REDACTED]")
 	value = flagPattern.ReplaceAllString(value, "$1[REDACTED]")
-	return assignPattern.ReplaceAllStringFunc(value, func(match string) string {
+	value = assignPattern.ReplaceAllStringFunc(value, func(match string) string {
 		if index := strings.IndexAny(match, ":="); index >= 0 {
 			return match[:index+1] + "[REDACTED]"
 		}
 		return "[REDACTED]"
 	})
+	return sensitiveTokenPattern.ReplaceAllString(value, "$1[REDACTED]")
 }

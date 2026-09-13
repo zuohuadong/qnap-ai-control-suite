@@ -16,7 +16,7 @@ For QPKG installs the default state lives under:
 
 `jobs.jsonl` is a write-ahead lifecycle journal. Once it reaches the compaction threshold, QACS writes the latest retained Job records to a temporary snapshot, fsyncs it, atomically renames it, then truncates the journal. If snapshot creation fails, the journal is not truncated.
 
-Each per-Job log file stores bounded JSON-string records. Log pagination continues to work after agent/QPKG restart. The same existing in-memory limits still apply: at most 1000 retained lines and 16 MiB per Job.
+Each per-Job log file stores bounded JSON-string records. When audit redaction is enabled, command output is redacted before it enters the in-memory Job record or the per-Job file; reading an older file after restart applies the same redaction at the response boundary. Log pagination continues to work after agent/QPKG restart. The same existing in-memory limits still apply: at most 1000 retained lines and 16 MiB per Job.
 
 ## Persisted result policy
 
