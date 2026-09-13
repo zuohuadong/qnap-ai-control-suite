@@ -66,6 +66,6 @@ Token 管理 API 也要求当前 Token。当前 QPKG 直接端口没有可验证
 
 ## 系统和完整控制
 
-“系统”页显示 profile、审批模式、审批 TTL、Job 并发、权限根目录、shell/任意命令、审计和已验证 QNAP adapter。v2.1.0 先提供只读设置展示；配置修改仍通过受控配置文件/升级流程完成，避免 UI 保存半套运行时配置。
+“系统”页显示 profile、审批模式、审批 TTL、Job 并发、权限根目录、shell/任意命令、审计和已验证 QNAP adapter。v2.1.1 先提供只读设置展示；配置修改仍通过受控配置文件/升级流程完成，避免 UI 保存半套运行时配置。
 
 `raw` toolset 仍是 break-glass 完整控制能力。它保留 `nas_exec`/`nas_shell` 等 root 能力，但有限危险命令识别不能覆盖所有通过脚本、解释器或其他 QTS 命令实现的破坏路径。详见 [安全模型](security-model.md) 和 [完整控制能力](qnap-full-control.md)。

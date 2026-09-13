@@ -98,8 +98,8 @@ func New(cfg config.Config) *Server {
 	if cfg.Audit.RedactSecrets != nil {
 		auditRedaction = *cfg.Audit.RedactSecrets
 	}
-	server := &Server{Config: cfg, Auth: auth.NewAuthManager(cfg.Auth.TokenSHA256), Exec: executor, Files: files.Service{Roots: cfg.Permissions.AllowedRoots, MaxInlineBytes: cfg.Files.MaxInlineBytes}, Audit: &audit.Logger{Enabled: cfg.Audit.Enabled, Path: cfg.Audit.Path, RedactSecrets: auditRedaction}, Operations: operations.New(), Approvals: approval.New(time.Duration(cfg.Approval.TTLSeconds) * time.Second), Docker: docker.Service{Exec: executor, Paths: cfg.DockerPaths, RedactSecrets: cfg.Privacy.RedactSecrets}, QPKG: qpkg.Service{Exec: executor}, Discovery: discovery.Service{Exec: executor}, System: qsystem.Service{Exec: executor}, Network: qnetwork.Service{Exec: executor}, Storage: storage.Service{Exec: executor}, Users: users.Service{Exec: executor}, Shares: shares.Service{Exec: executor}, Logs: logs.Service{AuditPath: cfg.Audit.Path, ServicePath: "/var/log/qnap-ai-control-agent/service.log"}, Ecosystem: ecosystem.Service{Discovery: discovery.Service{Exec: executor}, Exec: executor, Adapters: cfg.QNAPAdapters}, ProbePath: defaultProbePath(), started: time.Now(), hostname: host}
-	server.Jobs = jobs.NewWithOptions(jobs.Options{MaxHistory: cfg.Jobs.MaxHistory, MaxConcurrent: cfg.Jobs.MaxConcurrent, JournalPath: cfg.Jobs.JournalPath, OnEvent: server.auditJobEvent})
+	server := &Server{Config: cfg, Auth: auth.NewAuthManager(cfg.Auth.TokenSHA256), Exec: executor, Files: files.Service{Roots: cfg.Permissions.AllowedRoots, MaxInlineBytes: cfg.Files.MaxInlineBytes}, Audit: &audit.Logger{Enabled: cfg.Audit.Enabled, Path: cfg.Audit.Path, RedactSecrets: auditRedaction}, Operations: operations.New(), Approvals: approval.New(time.Duration(cfg.Approval.TTLSeconds) * time.Second), Docker: docker.Service{Exec: executor, Paths: cfg.DockerPaths, RedactSecrets: cfg.Privacy.RedactSecrets}, QPKG: qpkg.Service{Exec: executor}, Discovery: discovery.Service{Exec: executor}, System: qsystem.Service{Exec: executor}, Network: qnetwork.Service{Exec: executor}, Storage: storage.Service{Exec: executor}, Users: users.Service{Exec: executor}, Shares: shares.Service{Exec: executor}, Logs: logs.Service{AuditPath: cfg.Audit.Path, ServicePath: "/var/log/qnap-ai-control-agent/service.log", RedactSecrets: auditRedaction}, Ecosystem: ecosystem.Service{Discovery: discovery.Service{Exec: executor}, Exec: executor, Adapters: cfg.QNAPAdapters}, ProbePath: defaultProbePath(), started: time.Now(), hostname: host}
+	server.Jobs = jobs.NewWithOptions(jobs.Options{MaxHistory: cfg.Jobs.MaxHistory, MaxConcurrent: cfg.Jobs.MaxConcurrent, JournalPath: cfg.Jobs.JournalPath, RedactSecrets: auditRedaction, OnEvent: server.auditJobEvent})
 	server.thermalRun = func(ctx context.Context, req qexec.Request) (qexec.Result, error) {
 		return server.Exec.Run(ctx, req)
 	}
@@ -310,7 +310,8 @@ func (s *Server) routes(w http.ResponseWriter, r *http.Request) {
 	case "/v1/docker/info":
 		s.dockerCall(w, r, []string{"info", "--format", "{{json .}}"}, 30)
 	case "/v1/docker/containers":
-		s.dockerCall(w, r, []string{"ps", "-a", "--format", "{{json .}}"}, 30)
+		result, err := s.Docker.Containers(r.Context())
+		s.respondCommand(w, r, result, err)
 	case "/v1/docker/images":
 		s.dockerCall(w, r, []string{"images", "--format", "{{json .}}"}, 30)
 	case "/v1/docker/health":

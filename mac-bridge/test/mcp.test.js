@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import test from "node:test";
 import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
+import { dockerToolCommandArgs } from "../src/tools/docker.js";
 
 async function listTools(env = {}, protocolVersion = LATEST_PROTOCOL_VERSION) {
   const child = spawn(process.execPath, ["src/server.js"], { cwd: new URL("..", import.meta.url), stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, ...env } });
@@ -38,7 +39,7 @@ test("negotiates supported 2025 protocol and falls back for an unknown future ve
 
 test("default MCP toolset starts from a Unicode path and exposes core only", async () => {
   const { messages } = await listTools();
-  assert.equal(messages[0].result.serverInfo.version, "2.1.0");
+  assert.equal(messages[0].result.serverInfo.version, "2.1.1");
   const names = messages[1].result.tools.map((tool) => tool.name);
   assert.ok(names.includes("nas_health"));
   assert.ok(names.includes("nas_capabilities"));
@@ -83,4 +84,10 @@ test("optional toolsets expose typed QNAP contracts and compatibility fallbacks"
   assert.ok(names.includes("nas_vm_action"), "generic VM compatibility fallback must remain");
   assert.ok(names.includes("nas_hbs_action"), "generic HBS compatibility fallback must remain");
   assert.ok(!names.includes("nas_approval_decide"));
+});
+
+test("Docker remove tools bind the declared name to the CLI argv", () => {
+  assert.deepEqual(dockerToolCommandArgs("nas_docker_remove", { name: "qacs-test-container", args: ["--force"] }), ["qacs-test-container", "--force"]);
+  assert.deepEqual(dockerToolCommandArgs("nas_docker_image_remove", { name: "qacs-test-image" }), ["qacs-test-image"]);
+  assert.deepEqual(dockerToolCommandArgs("nas_docker_action", { action: "stop", name: "qacs-test-container" }), ["stop", "qacs-test-container"]);
 });

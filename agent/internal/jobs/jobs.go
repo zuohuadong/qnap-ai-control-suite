@@ -29,30 +29,30 @@ const (
 )
 
 type Job struct {
-	ID             string     `json:"id"`
-	Kind           string     `json:"kind"`
-	Status         Status     `json:"status"`
-	Progress       float64    `json:"progress,omitempty"`
-	Resource       string     `json:"resource,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	StartedAt      *time.Time `json:"started_at,omitempty"`
-	FinishedAt     *time.Time `json:"finished_at,omitempty"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	ExitCode       *int       `json:"exit_code,omitempty"`
-	Result         any        `json:"result,omitempty"`
-	ResultTruncated bool      `json:"result_truncated,omitempty"`
-	Error          string     `json:"error,omitempty"`
-	LogCount       int        `json:"log_count"`
-	LogBytes       int        `json:"log_bytes"`
-	LogsTruncated  bool       `json:"logs_truncated"`
-	Recovered      bool       `json:"recovered,omitempty"`
-	RecoveryStatus string     `json:"recovery_status,omitempty"`
-	Retriable      bool       `json:"retriable,omitempty"`
-	Logs           []string   `json:"-"`
-	RequestID      string     `json:"-"`
-	Operation      string     `json:"-"`
-	IdempotencyKey string     `json:"-"`
-	cancel         context.CancelFunc
+	ID              string     `json:"id"`
+	Kind            string     `json:"kind"`
+	Status          Status     `json:"status"`
+	Progress        float64    `json:"progress,omitempty"`
+	Resource        string     `json:"resource,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	StartedAt       *time.Time `json:"started_at,omitempty"`
+	FinishedAt      *time.Time `json:"finished_at,omitempty"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+	ExitCode        *int       `json:"exit_code,omitempty"`
+	Result          any        `json:"result,omitempty"`
+	ResultTruncated bool       `json:"result_truncated,omitempty"`
+	Error           string     `json:"error,omitempty"`
+	LogCount        int        `json:"log_count"`
+	LogBytes        int        `json:"log_bytes"`
+	LogsTruncated   bool       `json:"logs_truncated"`
+	Recovered       bool       `json:"recovered,omitempty"`
+	RecoveryStatus  string     `json:"recovery_status,omitempty"`
+	Retriable       bool       `json:"retriable,omitempty"`
+	Logs            []string   `json:"-"`
+	RequestID       string     `json:"-"`
+	Operation       string     `json:"-"`
+	IdempotencyKey  string     `json:"-"`
+	cancel          context.CancelFunc
 }
 
 type StartOptions struct {
@@ -75,24 +75,26 @@ type Options struct {
 	SnapshotPath  string
 	LogDir        string
 	CompactBytes  int64
+	RedactSecrets bool
 	OnEvent       func(Event)
 }
 
 type Manager struct {
-	mu            sync.RWMutex
-	jobs          map[string]*Job
-	maxHistory    int
-	maxLogBytes   int
-	maxConcurrent int
-	journalPath   string
-	snapshotPath  string
-	logDir        string
-	compactBytes  int64
+	mu             sync.RWMutex
+	jobs           map[string]*Job
+	maxHistory     int
+	maxLogBytes    int
+	maxConcurrent  int
+	journalPath    string
+	snapshotPath   string
+	logDir         string
+	compactBytes   int64
+	redactSecrets  bool
 	journalRecords int
-	onEvent       func(Event)
-	semaphore     chan struct{}
-	resourceLocks map[string]chan struct{}
-	next          uint64
+	onEvent        func(Event)
+	semaphore      chan struct{}
+	resourceLocks  map[string]chan struct{}
+	next           uint64
 }
 
 const (
@@ -132,6 +134,7 @@ func NewWithOptions(options Options) *Manager {
 		snapshotPath:  options.SnapshotPath,
 		logDir:        options.LogDir,
 		compactBytes:  options.CompactBytes,
+		redactSecrets: options.RedactSecrets,
 		onEvent:       options.OnEvent,
 		semaphore:     make(chan struct{}, options.MaxConcurrent),
 		resourceLocks: map[string]chan struct{}{},
@@ -292,6 +295,16 @@ func (m *Manager) finish(job *Job, result any, err error, ctx context.Context) {
 		job.Error = audit.RedactText(err.Error())
 	} else {
 		job.Status = Succeeded
+		if command, ok := result.(qexec.Result); ok {
+			if m.redactSecrets {
+				command.Argv = redactStrings(command.Argv)
+				command.Stdout = audit.RedactText(command.Stdout)
+				command.Stderr = audit.RedactText(command.Stderr)
+			}
+			result = command
+		} else if m.redactSecrets {
+			result = audit.Sanitize(result)
+		}
 		job.Result = result
 	}
 	if command, ok := result.(qexec.Result); ok {
@@ -360,6 +373,9 @@ func (m *Manager) trimLocked() {
 func (m *Manager) appendLog(job *Job, line string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.redactSecrets {
+		line = audit.RedactText(line)
+	}
 	if job.LogsTruncated || len(job.Logs) >= maxLogLines {
 		if !job.LogsTruncated {
 			job.LogsTruncated = true
@@ -636,6 +652,9 @@ func (m *Manager) readLogFile(id string) []string {
 	for scanner.Scan() && len(out) < maxLogLines {
 		var line string
 		if json.Unmarshal(scanner.Bytes(), &line) == nil {
+			if m.redactSecrets {
+				line = audit.RedactText(line)
+			}
 			out = append(out, line)
 		}
 	}
@@ -643,6 +662,14 @@ func (m *Manager) readLogFile(id string) []string {
 }
 
 func (m *Manager) logPath(id string) string { return filepath.Join(m.logDir, id+".jsonl") }
+
+func redactStrings(values []string) []string {
+	redacted := make([]string, len(values))
+	for index, value := range values {
+		redacted[index] = audit.RedactText(value)
+	}
+	return redacted
+}
 
 func clone(job Job) Job {
 	job.cancel = nil

@@ -39,7 +39,10 @@ func (s Service) Info(ctx context.Context) (qexec.Result, error) {
 	return s.Run(ctx, []string{"info", "--format", "{{json .}}"}, 30)
 }
 func (s Service) Containers(ctx context.Context) (qexec.Result, error) {
-	return s.Run(ctx, []string{"ps", "-a", "--format", "{{json .}}"}, 30)
+	// Some QNAP Container Station Docker builds hang when the JSON template
+	// formatter is used. Keep this inventory on the stable scalar placeholders;
+	// inspect/health provide the richer structured fields when needed.
+	return s.Run(ctx, []string{"ps", "-a", "--format", "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}"}, 30)
 }
 func (s Service) Images(ctx context.Context) (qexec.Result, error) {
 	return s.Run(ctx, []string{"images", "--format", "{{json .}}"}, 30)

@@ -49,3 +49,14 @@ func TestLineTimestampParsesSyslogPrefix(t *testing.T) {
 		t.Fatal("expected syslog timestamp to parse")
 	}
 }
+
+func TestPageRedactsSensitiveValuesBeforeFiltering(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "service.log")
+	if err := os.WriteFile(path, []byte("qacs-test-secret-123 qacs-test-password-123 ordinary-value\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	page, err := (Service{ServicePath: path, RedactSecrets: true}).Page("service", 100, 0, "ordinary-value", time.Time{}, time.Time{})
+	if err != nil || len(page.Lines) != 1 || strings.Contains(page.Lines[0], "qacs-test-secret-123") || strings.Contains(page.Lines[0], "qacs-test-password-123") {
+		t.Fatalf("service log was not redacted: %#v err=%v", page, err)
+	}
+}

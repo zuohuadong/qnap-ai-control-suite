@@ -55,6 +55,27 @@ func TestComposeProjectsParsesJSONAndPreservesConfigFiles(t *testing.T) {
 	}
 }
 
+func TestContainersAvoidsQNAPJSONTemplateHang(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("QNAP Docker service uses a Unix executable")
+	}
+	path := filepath.Join(t.TempDir(), "docker-fixture")
+	script := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"ps\" ]; then\n" +
+		"  for arg in \"$@\"; do [ \"$arg\" = \"{{json .}}\" ] && exit 42; done\n" +
+		"  printf 'abc123\\tworker\\tbusybox:1\\tUp 2 minutes\\n'\n" +
+		"  exit 0\n" +
+		"fi\n" +
+		"exit 1\n"
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	result, err := (Service{Exec: qexec.Executor{}, Paths: []string{path}}).Containers(context.Background())
+	if err != nil || result.ExitCode != 0 || !strings.Contains(result.Stdout, "worker") {
+		t.Fatalf("QNAP-compatible container inventory failed: result=%+v err=%v", result, err)
+	}
+}
+
 func TestBuildReconstructionEquivalentForRepresentedRuntimeConfiguration(t *testing.T) {
 	raw := readFixtureMap(t, "testdata/reconstruct-equivalent.json")
 	reconstruction, err := BuildReconstruction(raw, false)
