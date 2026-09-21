@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { deviceDirectoryRequest } from "./device-directory-request.js";
 
 const routes = new Set([
   "GET /v1/health", "GET /v1/shares", "GET /v1/shares/smb-status",
@@ -25,7 +26,10 @@ export function curlConfiguration(method, path, body, token) {
 }
 
 export async function sshReadRequest(config, method, path, body = "") {
-  const input = curlConfiguration(method, path, body, config.agentToken);
+  const directoryWrite = method === "POST" && path === "/v1/device-directories/ensure";
+  if (directoryWrite && config.deviceDirectoriesEnabled !== true) throw new Error("Directory capability disabled");
+  const request = directoryWrite ? deviceDirectoryRequest(body) : null;
+  const input = directoryWrite ? JSON.stringify(request) : curlConfiguration(method, path, body, config.agentToken);
   if (!/^[A-Za-z0-9._-]+$/.test(config.sshUser)
       || !/^[A-Za-z0-9.-]+$/.test(config.sshHost)
       || !Number.isInteger(config.sshPort) || config.sshPort < 1 || config.sshPort > 65535) {
@@ -36,7 +40,9 @@ export async function sshReadRequest(config, method, path, body = "") {
     "-o", "ConnectTimeout=5", "-o", "NumberOfPasswordPrompts=1",
     "-o", "PreferredAuthentications=password,keyboard-interactive",
     "-p", String(config.sshPort), `${config.sshUser}@${config.sshHost}`,
-    "/sbin/curl --silent --show-error --max-time 15 --config -",
+    directoryWrite
+      ? "/share/ZFS530_DATA/.qnap-device-directory/qnap-device-directory --root /share/ZFS20_DATA/xigu-fa/_device-inbox"
+      : "/sbin/curl --silent --show-error --max-time 15 --config -",
   ], {
     stdio: ["pipe", "pipe", "pipe"],
     env: { PATH: "/usr/bin:/bin", DISPLAY: "qacs",
@@ -62,6 +68,13 @@ export async function sshReadRequest(config, method, path, body = "") {
     child.once("exit", resolve);
   }).finally(() => clearTimeout(timer));
   if (code !== 0 || overflow) throw new Error("NAS SSH read transport failed");
+  if (directoryWrite) {
+    const receipt = JSON.parse(output);
+    if (receipt.verified !== true || !Object.keys(request).every(key => receipt[key] === request[key])) {
+      throw new Error("Directory write outcome unverified");
+    }
+    return { status: 200, body: JSON.stringify({ ok: true, data: receipt }) };
+  }
   const separator = output.lastIndexOf("\n");
   const status = Number(output.slice(separator + 1));
   if (separator < 0 || !Number.isInteger(status) || status < 100 || status > 599) {

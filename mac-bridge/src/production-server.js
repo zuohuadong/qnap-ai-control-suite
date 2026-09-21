@@ -34,10 +34,12 @@ const relay = http.createServer(async (req, res) => {
   try {
     const result = await sshReadRequest({ ...config, agentToken }, req.method, req.url, await bodyText(req));
     reply(res, result.status, result.body);
-    console.log(JSON.stringify({ event: "nas_read", method: req.method,
+    console.log(JSON.stringify({ event: req.method === "POST" && req.url === "/v1/device-directories/ensure" ? "nas_directory_ensure" : "nas_read", method: req.method,
       route: new URL(req.url, "http://localhost").pathname, status: result.status }));
   } catch {
-    reply(res, 502, '{"ok":false,"error":{"code":"nas_read_transport_failed"}}');
+    reply(res, 502, req.method === "POST" && req.url === "/v1/device-directories/ensure"
+      ? '{"ok":false,"error":{"code":"nas_directory_outcome_unverified"}}'
+      : '{"ok":false,"error":{"code":"nas_read_transport_failed"}}');
     console.error('{"event":"nas_read_failed"}');
   } finally { active--; }
 });
