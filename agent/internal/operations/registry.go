@@ -79,6 +79,9 @@ func (Registry) Resolve(request Request) Operation {
 	}
 
 	switch {
+	case method == "POST" && (pathValue == "/v1/files/read" || pathValue == "/v1/files/checksum"):
+		// POST 在这两个端点仅承载读取参数，不构成文件写操作。
+		op.Risk = Read
 	case pathValue == "/v1/system/reboot" || pathValue == "/v1/system/shutdown" || pathValue == "/v1/system/power":
 		op.Name, op.Risk = "system.power", Sensitive
 	case pathValue == "/v1/exec" || pathValue == "/v1/command/run" || pathValue == "/v1/shell":
