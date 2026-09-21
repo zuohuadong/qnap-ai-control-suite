@@ -1,5 +1,17 @@
 export const baseUrl = (process.env.QACS_BASE_URL || "http://NAS_IP:8756").replace(/\/$/, "");
 export const token = process.env.QACS_TOKEN || "";
+const supplementMode = process.env.QACS_SUPPLEMENT_READ_ONLY || "false";
+if (!["true", "false"].includes(supplementMode)) {
+  throw new Error("QACS_SUPPLEMENT_READ_ONLY must be true or false");
+}
+export const supplementReadOnly = supplementMode === "true";
+const supplementTools = new Set([
+  "nas_health", "nas_share_list", "nas_smb_status",
+  "nas_file_list", "nas_file_stat", "nas_file_read", "nas_file_checksum",
+]);
+export function supplementToolEnabled(name) {
+  return !supplementReadOnly || supplementTools.has(name);
+}
 export const defaultHttpTimeoutMs = 30_000;
 export const longRequestTimeoutMs = 90_000;
 export const defaultApprovalTimeoutMs = 300_000;

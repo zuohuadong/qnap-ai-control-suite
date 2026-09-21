@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "listen": "127.0.0.1:8756",
+  "auth": { "type": "bearer", "token_sha256": "REPLACE_WITH_SHA256_OF_YOUR_TOKEN" },
+  "profile": "observe",
+  "supplement_read_only": true,
+  "permissions": {
+    "allowed_roots": ["/share/fa-acceptance"],
+    "allow_any_command": false,
+    "allowed_commands": [],
+    "allow_shell": false
+  },
+  "privacy": { "redact_secrets": true },
+  "approval": { "mode": "all_write", "ttl_seconds": 600 },
+  "audit": {
+    "enabled": true,
+    "path": "/var/log/qnap-ai-control-agent/supplement-audit.jsonl",
+    "redact_secrets": true
+  },
+  "qnap_adapters": {}
+}

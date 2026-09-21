@@ -91,3 +91,13 @@ test("Docker remove tools bind the declared name to the CLI argv", () => {
   assert.deepEqual(dockerToolCommandArgs("nas_docker_image_remove", { name: "qacs-test-image" }), ["qacs-test-image"]);
   assert.deepEqual(dockerToolCommandArgs("nas_docker_action", { action: "stop", name: "qacs-test-container" }), ["stop", "qacs-test-container"]);
 });
+
+test("read-only supplement restricts even the all toolset to seven read tools", async () => {
+  const { messages } = await listTools({ QACS_TOOLSETS: "all", QACS_SUPPLEMENT_READ_ONLY: "true" });
+  const tools = messages[1].result.tools;
+  assert.deepEqual(tools.map((tool) => tool.name).sort(), [
+    "nas_health", "nas_share_list", "nas_smb_status",
+    "nas_file_list", "nas_file_stat", "nas_file_read", "nas_file_checksum",
+  ].sort());
+  assert.ok(tools.every((tool) => tool.annotations.readOnlyHint === true));
+});
