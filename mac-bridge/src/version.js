@@ -1,3 +1,6 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
-export const version = readFileSync(new URL("../../VERSION", import.meta.url), "utf8").trim();
+const repositoryVersion = new URL("../../VERSION", import.meta.url);
+export const version = existsSync(repositoryVersion)
+  ? readFileSync(repositoryVersion, "utf8").trim()
+  : JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
