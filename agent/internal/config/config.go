@@ -65,20 +65,21 @@ type Audit struct {
 }
 
 type Config struct {
-	Version      int                    `json:"version"`
-	Listen       string                 `json:"listen"`
-	Auth         Auth                   `json:"auth"`
-	Profile      string                 `json:"profile"`
-	Permissions  Permissions            `json:"permissions"`
-	Privacy      Privacy                `json:"privacy"`
-	Confirmation Confirmation           `json:"confirmation,omitempty"`
-	Approval     Approval               `json:"approval"`
-	Command      Command                `json:"command"`
-	Files        Files                  `json:"files"`
-	Jobs         Jobs                   `json:"jobs"`
-	Audit        Audit                  `json:"audit"`
-	DockerPaths  []string               `json:"docker_paths,omitempty"`
-	QNAPAdapters map[string]QNAPAdapter `json:"qnap_adapters,omitempty"`
+	SupplementReadOnly bool                   `json:"supplement_read_only,omitempty"`
+	Version            int                    `json:"version"`
+	Listen             string                 `json:"listen"`
+	Auth               Auth                   `json:"auth"`
+	Profile            string                 `json:"profile"`
+	Permissions        Permissions            `json:"permissions"`
+	Privacy            Privacy                `json:"privacy"`
+	Confirmation       Confirmation           `json:"confirmation,omitempty"`
+	Approval           Approval               `json:"approval"`
+	Command            Command                `json:"command"`
+	Files              Files                  `json:"files"`
+	Jobs               Jobs                   `json:"jobs"`
+	Audit              Audit                  `json:"audit"`
+	DockerPaths        []string               `json:"docker_paths,omitempty"`
+	QNAPAdapters       map[string]QNAPAdapter `json:"qnap_adapters,omitempty"`
 }
 
 type legacyConfig struct {
@@ -191,6 +192,21 @@ func Normalize(cfg Config) (Config, error) {
 		return cfg, errors.New("permissions.allowed_roots must not be empty")
 	}
 	cfg.Permissions.AllowedCommands = cleanPaths(cfg.Permissions.AllowedCommands)
+	if cfg.SupplementReadOnly {
+		if cfg.Profile != "observe" || cfg.Permissions.AllowAnyCommand || cfg.Permissions.AllowShell ||
+			len(cfg.Permissions.AllowedCommands) > 0 || len(cfg.QNAPAdapters) > 0 {
+			return cfg, errors.New("supplement_read_only requires observe with no shell, commands, or adapters")
+		}
+		for _, root := range cfg.Permissions.AllowedRoots {
+			if root == "/" {
+				return cfg, errors.New("supplement_read_only requires scoped file roots")
+			}
+		}
+		if !cfg.Audit.Enabled || !cfg.Privacy.RedactSecrets ||
+			(cfg.Audit.RedactSecrets != nil && !*cfg.Audit.RedactSecrets) {
+			return cfg, errors.New("supplement_read_only requires audit and secret redaction")
+		}
+	}
 	if cfg.Confirmation.Mode == "" {
 		cfg.Confirmation.Mode = defaults.Confirmation.Mode
 	}

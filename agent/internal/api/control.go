@@ -38,6 +38,11 @@ func (s *Server) operationControl(next http.Handler) http.Handler {
 		recorder := &statusRecorder{ResponseWriter: w}
 		defer func() { s.auditOperation(r, op, recorder.status) }()
 
+		if s.Config.SupplementReadOnly && !supplementReadAllowed(r.Method, r.URL.Path) {
+			s.fail(recorder, r, http.StatusForbidden, "supplement_read_only", "operation is not available in the read-only supplement", nil)
+			return
+		}
+
 		if s.requiresApproval(op) {
 			binding := approval.BindingFor(r.Method, r.URL.Path, canonicalBody(body), op.Name)
 			approvalID := strings.TrimSpace(r.Header.Get(approvalHeader))

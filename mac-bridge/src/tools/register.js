@@ -1,7 +1,7 @@
 import * as z from "zod/v4";
 import { toolResult } from "../client.js";
 import { ApprovalFlowError, handleApprovalRequired, isApprovalRequired, unsupportedApprovalMessage } from "../approval.js";
-import { toolsetEnabled } from "../config.js";
+import { toolsetEnabled, supplementToolEnabled } from "../config.js";
 import { normalizeToolOutput, structuredToolError } from "./contracts.js";
 
 export { z };
@@ -11,7 +11,7 @@ export const approvalRequiredSchema = z.object({ approval_id: z.string(), operat
 export const outputSchema = z.object({}).passthrough();
 export function register(server, name, description, inputSchema, call, annotations = {}) {
   const toolset = annotations.toolset || toolsetFor(name);
-  if (!toolsetEnabled(toolset)) return;
+  if (!toolsetEnabled(toolset) || !supplementToolEnabled(name)) return;
   const schema = annotations.readOnlyHint ? inputSchema : withControlFields(inputSchema);
   const effectiveDescription = name === "nas_qpkg_manage"
     ? "Manage a QPKG. For install/download/update operations, QTS qpkg_cli exit 0 may only acknowledge queue acceptance; inspect completion_verified/verification and confirm final package registration/version/process/health before treating the operation as complete."
