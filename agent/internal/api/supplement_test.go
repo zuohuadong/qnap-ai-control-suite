@@ -12,6 +12,7 @@ func TestSupplementReadOnly(t *testing.T) {
 	s, token := testServer(t)
 	// 即使误配 full_trust，补充模式也必须阻止写入和任意命令。
 	s.Config.SupplementReadOnly = true
+	s.Config.Approval.Mode = "all_write"
 	for _, path := range []string{
 		"/v1/exec", "/v1/shell", "/v1/command/run", "/v1/jobs",
 		"/v1/acl/set", "/v1/files/write", "/v1/files/manage",
@@ -41,6 +42,10 @@ func TestSupplementReadOnly(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("checksum: %d %s", w.Code, w.Body)
 	}
+	w = request(t, s, token, "POST", "/v1/files/read", `{"path":"`+path+`"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("read requires approval: %d %s", w.Code, w.Body)
+	}
 	outside := filepath.Join(t.TempDir(), "outside.txt")
 	if err := os.WriteFile(outside, []byte("outside"), 0600); err != nil {
 		t.Fatal(err)
@@ -48,6 +53,9 @@ func TestSupplementReadOnly(t *testing.T) {
 	w = request(t, s, token, "POST", "/v1/files/read", `{"path":"`+outside+`"}`)
 	if w.Code == http.StatusOK {
 		t.Fatal("read escaped allowed roots")
+	}
+	if strings.Contains(w.Body.String(), "approval_required") {
+		t.Fatal("outside-root read must reach the path guard, not create an approval")
 	}
 }
 
