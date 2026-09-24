@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { curlConfiguration } from "../src/ssh-read-transport.js";
+import { curlConfiguration, deviceDirectoryCommand } from "../src/ssh-read-transport.js";
+
+test("device directory root supports a confined storage cutover without shell expansion", () => {
+  assert.ok(deviceDirectoryCommand({}).endsWith("--root /share/ZFS20_DATA/xigu-fa/_device-inbox"));
+  assert.ok(deviceDirectoryCommand({ deviceDirectoryRoot: "/share/ZFS27_DATA/xigu-fas/_device-inbox" })
+    .endsWith("--root /share/ZFS27_DATA/xigu-fas/_device-inbox"));
+  for (const root of [
+    "/", "/share/ZFS27_DATA/../_device-inbox",
+    "/share/ZFS27_DATA/xigu-fas/_device-inbox;id",
+    "/share/ZFS27_DATA/xigu-fas/_device-inbox\n",
+    "/share/ZFS27_DATA/xigu-fas/fa-reports",
+    "/share/ZFS27_DATA/$(id)/_device-inbox", 123,
+  ]) assert.throws(() => deviceDirectoryCommand({ deviceDirectoryRoot: root }));
+});
 
 test("SSH read transport pins origin, methods and routes; escapes request data", () => {
   const token = "a".repeat(48);
