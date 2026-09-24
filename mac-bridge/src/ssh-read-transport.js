@@ -7,6 +7,15 @@ const routes = new Set([
   "POST /v1/files/read", "POST /v1/files/checksum",
 ]);
 
+export function deviceDirectoryCommand(config) {
+  const root = config.deviceDirectoryRoot || "/share/ZFS20_DATA/xigu-fa/_device-inbox";
+  if (typeof root !== "string"
+      || !/^\/share\/ZFS[1-9][0-9]*_DATA\/[A-Za-z0-9][A-Za-z0-9._-]{0,119}\/_device-inbox$/.test(root)) {
+    throw new Error("Invalid device directory root");
+  }
+  return `/share/ZFS530_DATA/.qnap-device-directory/qnap-device-directory --root ${root}`;
+}
+
 export function curlConfiguration(method, path, body, token) {
   const url = new URL(path, "http://127.0.0.1:8756");
   if (url.origin !== "http://127.0.0.1:8756" || !path.startsWith("/v1/")
@@ -41,7 +50,7 @@ export async function sshReadRequest(config, method, path, body = "") {
     "-o", "PreferredAuthentications=password,keyboard-interactive",
     "-p", String(config.sshPort), `${config.sshUser}@${config.sshHost}`,
     directoryWrite
-      ? "/share/ZFS530_DATA/.qnap-device-directory/qnap-device-directory --root /share/ZFS20_DATA/xigu-fa/_device-inbox"
+      ? deviceDirectoryCommand(config)
       : "/sbin/curl --silent --show-error --max-time 15 --config -",
   ], {
     stdio: ["pipe", "pipe", "pipe"],
